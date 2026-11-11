@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>갈매기 관객 설문 · 서강연극회</title>
+<meta name="theme-color" content="#F4F1EA">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  /* ===== 설정 끝, 디자인 시작 ===== */
+  :root{
+    --paper:#F4F1EA; --ink:#1D2830; --sub:#6B7680; --line:#DCD6CA;
+    --sea:#2E5873; --sea-soft:#E3EBF0; --white:#FFFFFF;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);
+    font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;}
+  body{display:flex;justify-content:center;word-break:keep-all}
+  .app{width:100%;max-width:480px;min-height:100%;display:flex;flex-direction:column;padding:0 22px calc(24px + env(safe-area-inset-bottom))}
+  header{display:flex;align-items:center;gap:12px;padding:18px 0 10px}
+  .back{border:0;background:none;font-size:22px;color:var(--ink);padding:4px 8px 4px 0;cursor:pointer;visibility:hidden}
+  .back.show{visibility:visible}
+  .bar{flex:1;height:4px;background:var(--line);border-radius:4px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--sea);transition:width .35s ease}
+  .count{font-size:13px;color:var(--sub);font-variant-numeric:tabular-nums;min-width:38px;text-align:right}
+  main{flex:1;display:flex;flex-direction:column}
+  .screen{animation:in .32s ease both;display:flex;flex-direction:column;flex:1}
+  @keyframes in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  h1{font-size:30px;line-height:1.25;margin:28px 0 12px;letter-spacing:-.02em}
+  h2{font-size:22px;line-height:1.4;margin:22px 0 6px;letter-spacing:-.02em;font-weight:700}
+  .hint{font-size:14px;color:var(--sub);margin:0 0 20px;line-height:1.5}
+  p.lead{font-size:16px;line-height:1.65;color:#3A4650;margin:0 0 10px}
+  .opts{display:flex;flex-direction:column;gap:10px}
+  .opt{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;
+    padding:16px 18px;border:1.5px solid var(--line);border-radius:14px;background:var(--white);
+    font:inherit;font-size:16px;color:var(--ink);cursor:pointer;transition:all .15s}
+  .opt:active{transform:scale(.985)}
+  .opt.on{border-color:var(--sea);background:var(--sea-soft);font-weight:600}
+  .opt .ck{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line);flex:none;margin-left:12px;display:grid;place-items:center;font-size:13px;color:#fff}
+  .opt.on .ck{background:var(--sea);border-color:var(--sea)}
+  .nps{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+  .nps .opt{justify-content:center;padding:14px 0;font-variant-numeric:tabular-nums}
+  .nps-legend{display:flex;justify-content:space-between;font-size:13px;color:var(--sub);margin-top:10px}
+  textarea,input.txt{width:100%;font:inherit;font-size:16px;padding:16px;border:1.5px solid var(--line);border-radius:14px;background:var(--white);color:var(--ink);resize:none}
+  textarea{min-height:140px}
+  textarea:focus,input.txt:focus{outline:none;border-color:var(--sea)}
+  input.txt{letter-spacing:.3em;text-align:center;font-size:24px;font-variant-numeric:tabular-nums}
+  .spacer{flex:1;min-height:24px}
+  .cta{width:100%;padding:17px;border:0;border-radius:14px;background:var(--ink);color:#fff;font:inherit;font-size:17px;font-weight:600;cursor:pointer;margin-top:18px}
+  .cta:disabled{opacity:.3;cursor:default}
+  .ghost{width:100%;padding:12px;border:0;background:none;color:var(--sub);font:inherit;font-size:15px;cursor:pointer;margin-top:4px}
+  .badge{display:inline-block;font-size:12px;letter-spacing:.08em;color:var(--sea);border:1px solid var(--sea);border-radius:99px;padding:5px 11px;margin-top:36px;align-self:flex-start}
+  .meta{display:flex;gap:18px;margin:18px 0 0;font-size:14px;color:var(--sub)}
+  .meta b{color:var(--ink);font-weight:600}
+  .consent{font-size:12.5px;line-height:1.6;color:var(--sub);margin-top:22px;padding:14px;border-radius:12px;background:rgba(255,255,255,.6)}
+  .gull{width:120px;margin:40px 0 0;color:var(--sea)}
+  .center{text-align:left}
+  .err{color:#B3402F;font-size:14px;margin-top:10px;min-height:20px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <button class="back" id="back" aria-label="이전">←</button>
+    <div class="bar"><i id="bar"></i></div>
+    <span class="count" id="count"></span>
+  </header>
+  <main id="main"></main>
+</div>
+
+<script>
+/* ======================================================================
+   설정: Apps Script 웹앱 배포 후 받은 URL을 아래에 붙여넣기
+   (비워두면 테스트 모드: 제출 내용이 콘솔에만 찍히고 저장은 안 됨)
+   ====================================================================== */
+const ENDPOINT = "https://script.google.com/macros/s/AKfycby0WFsXRq9Y1zObSnblqDgy5bOC_uiwi24ad117FH5RVu0OD3nfeDay6EvfWiP7_go/exec";
+
+const SESSIONS = {
+  "1112-1500": "11월 12일(목) 15:00",
+  "1112-1930": "11월 12일(목) 19:30",
+  "1113-1500": "11월 13일(금) 15:00",
+  "1113-1930": "11월 13일(금) 19:30",
+  "1114-1300": "11월 14일(토) 13:00",
+  "1114-1800": "11월 14일(토) 18:00",
+};
+
+/* ---------- URL 파라미터: ?r=예매번호  /  ?s=회차코드 ---------- */
+const params = new URLSearchParams(location.search);
+const BOOKING = (params.get("r") || "").trim().toUpperCase();
+const SESSION_CODE = (params.get("s") || "").trim();
+const ctx = { hasBooking: !!BOOKING, hasSession: !!SESSIONS[SESSION_CODE] };
+
+/* ---------- 문항 정의 ---------- */
+const Q = [
+  { id:"session", type:"single", title:"어떤 회차를 관람하셨나요?",
+    options:Object.values(SESSIONS), when:()=>!ctx.hasBooking && !ctx.hasSession },
+  { id:"gender", type:"single", title:"성별을 알려주세요", options:["남성","여성","응답하지 않음"] },
+  { id:"age", type:"single", title:"나이대를 알려주세요", hint:"만 나이 기준",
+    options:["19세 이하","20~22세","23~25세","26~29세","30대","40대 이상"] },
+  { id:"affiliation", type:"single", title:"현재 어디에 속해 계신가요?",
+    options:["서강대 재학생","서강대 졸업생","타 대학 재학생","직장인","기타"] },
+  { id:"relation", type:"single", title:"서강연극회와는 어떤 관계인가요?",
+    options:["현재 부원","OB·OG","공연진의 가족·지인","다른 연극 동아리 소속","특별한 관계 없음"] },
+  { id:"channels", type:"multi", title:"이번 공연을 어떻게 알게 되셨나요?", hint:"해당하는 것을 모두 골라주세요",
+    options:["공연진에게 직접 연락받음","지인 추천","인스타그램","교내·교외 포스터","에브리타임","다른 동아리 단관·제휴","기타"] },
+  { id:"reason", type:"multi", title:"관람을 결정한 이유는 무엇인가요?", hint:"해당하는 것을 모두 골라주세요",
+    options:["아는 사람이 출연·참여해서","작품(체호프 『갈매기』)이 궁금해서","대학 연극에 관심이 있어서","가격이 부담 없어서","일정이 맞아서","기타"] },
+  { id:"theater_freq", type:"single", title:"연극은 1년에 몇 편 정도 보시나요?",
+    options:["0~1편","2~4편","5~9편","10편 이상"] },
+  { id:"sgtc_visits", type:"single", title:"서강연극회 공연은 이번이 몇 번째인가요?",
+    options:["이번이 처음","2~3번째","4번 이상"] },
+  { id:"original_awareness", type:"single", title:"원작 『갈매기』를 알고 계셨나요?",
+    options:["읽었거나 다른 공연으로 봤다","제목 정도만 들어봤다","이번에 처음 알았다"] },
+  { id:"satisfaction", type:"single", title:"공연은 전반적으로 어떠셨나요?",
+    options:["매우 만족","만족","보통","불만족","매우 불만족"], values:[5,4,3,2,1] },
+  { id:"nps", type:"nps", title:"이 공연을 지인에게 추천할 의향은 얼마나 되나요?" },
+  { id:"price", type:"single", title:"티켓 가격 9,000원은 어떠셨나요?",
+    options:["적당하다","비싸다","싸다"] },
+  { id:"notify", type:"single", title:"다음 서강연극회 공연 소식을 받아보실래요?",
+    hint: ctx.hasBooking ? "예매하신 연락처로 안내드려요" : "예매하신 연락처로 안내드려요 (다음 화면에서 번호 뒤 4자리를 남겨주세요)",
+    options:["네, 받을래요","괜찮아요"] },
+  { id:"comment", type:"text", title:"공연진에게 한마디 남겨주세요", hint:"선택 · 자유롭게 적어주세요" },
+  { id:"phone4", type:"phone4", title:"예매하신 전화번호 뒤 4자리", hint:"선택 · 예매 기록과 묶어 통계를 내는 데만 쓰여요",
+    when:()=>!ctx.hasBooking },
+];
+
+/* ---------- 상태 ---------- */
+const ans = {};
+let flow = [];          // 현재 조건으로 보이는 문항 목록
+let idx = -1;           // -1 = 인트로
+const startedAt = Date.now();
+const $main = document.getElementById("main");
+const $bar = document.getElementById("bar");
+const $count = document.getElementById("count");
+const $back = document.getElementById("back");
+
+function buildFlow(){ flow = Q.filter(q => !q.when || q.when()); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function setChrome(){
+  const total = flow.length;
+  const shown = Math.max(0, Math.min(idx, total));
+  $bar.style.width = idx < 0 ? "0%" : (shown/total*100) + "%";
+  $count.textContent = (idx >= 0 && idx < total) ? `${idx+1}/${total}` : "";
+  $back.classList.toggle("show", idx >= 0 && idx < total);
+}
+
+/* ---------- 화면들 ---------- */
+const gullSVG = `<svg class="gull" viewBox="0 0 120 40" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 24 C 22 8, 40 8, 60 24 C 80 8, 98 8, 114 24"/><path d="M44 34 C 50 28, 56 28, 60 32 C 64 28, 70 28, 76 34" opacity=".45"/></svg>`;
+
+function intro(){
+  let done = false;
+  try { done = localStorage.getItem("gull_survey_done") === (BOOKING || SESSION_CODE || "any"); } catch(e){}
+  const sessionLine = BOOKING ? `<div>예매번호 <b>${esc(BOOKING)}</b></div>`
+                    : ctx.hasSession ? `<div>관람 회차 <b>${esc(SESSIONS[SESSION_CODE])}</b></div>` : "";
+  $main.innerHTML = `
+  <section class="screen">
+    ${gullSVG}
+    <span class="badge">서강연극회 제118회 정기공연</span>
+    <h1>『갈매기』<br>관객 설문</h1>
+    <p class="lead">오늘 공연 어떠셨나요? 남겨주신 답변은 다음 공연을 만드는 데 소중히 쓰입니다.</p>
+    <div class="meta"><div>약 <b>1분</b></div><div><b>${flow.length}</b>문항</div><div>대부분 <b>탭 한 번</b></div></div>
+    ${sessionLine ? `<div class="meta">${sessionLine}</div>` : ""}
+    ${done ? `<p class="hint" style="margin-top:18px">이미 응답해주셨어요. 감사합니다!</p>` : ""}
+    <div class="spacer"></div>
+    <div class="consent">응답은 통계 분석과 공연 결산에만 사용되며, 예매 정보(회차·좌석 등)와 연결해 익명으로 분석합니다. 결과 공개 시 개인을 식별할 수 있는 정보는 포함되지 않습니다. 시작하기를 누르면 이에 동의하는 것으로 간주합니다.</div>
+    <button class="cta" id="start">${done ? "다시 응답하기" : "시작하기"}</button>
+  </section>`;
+  document.getElementById("start").onclick = () => go(0);
+}
+
+function render(){
+  setChrome();
+  if (idx < 0) return intro();
+  if (idx >= flow.length) return submit();
+  const q = flow[idx];
+  const isLast = idx === flow.length - 1;
+  let body = "";
+
+  if (q.type === "single" || q.type === "multi"){
+    const cur = ans[q.id];
+    body = `<div class="opts">` + q.options.map((o,i)=>{
+      const on = q.type==="multi" ? (cur||[]).includes(o) : cur===o;
+      return `<button class="opt ${on?"on":""}" data-i="${i}"><span>${esc(o)}</span>${q.type==="multi"?`<span class="ck">${on?"✓":""}</span>`:""}</button>`;
+    }).join("") + `</div>`;
+    if (q.type==="multi") body += `<div class="spacer"></div><button class="cta" id="next" ${(cur||[]).length?"":"disabled"}>${isLast?"제출하기":"다음"}</button>`;
+  }
+  else if (q.type === "nps"){
+    const cur = ans[q.id];
+    body = `<div class="nps">` + Array.from({length:11},(_,n)=>`<button class="opt ${cur===n?"on":""}" data-n="${n}">${n}</button>`).join("") +
+           `</div><div class="nps-legend"><span>0 · 전혀 아니다</span><span>10 · 꼭 추천</span></div>`;
+  }
+  else if (q.type === "text"){
+    body = `<textarea id="ta" maxlength="1000" placeholder="좋았던 장면, 아쉬웠던 점, 응원 한마디 등">${esc(ans[q.id]||"")}</textarea>
+            <div class="spacer"></div>
+            <button class="cta" id="next">${isLast?"제출하기":"다음"}</button>
+            <button class="ghost" id="skip">건너뛰기</button>`;
+  }
+  else if (q.type === "phone4"){
+    body = `<input class="txt" id="p4" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="0000" value="${esc(ans[q.id]||"")}">
+            <div class="err" id="err"></div>
+            <div class="spacer"></div>
+            <button class="cta" id="next">${isLast?"제출하기":"다음"}</button>
+            <button class="ghost" id="skip">건너뛰고 제출</button>`;
+  }
+
+  $main.innerHTML = `<section class="screen"><h2>${esc(q.title)}</h2>${q.hint?`<p class="hint">${esc(q.hint)}</p>`:`<p class="hint"></p>`}${body}</section>`;
+
+  // 이벤트
+  $main.querySelectorAll(".opt[data-i]").forEach(b => b.onclick = () => {
+    const o = q.options[+b.dataset.i];
+    if (q.type === "single"){
+      ans[q.id] = o;
+      $main.querySelectorAll(".opt").forEach(x=>x.classList.remove("on"));
+      b.classList.add("on");
+      setTimeout(()=>go(idx+1), 220);
+    } else {
+      const arr = ans[q.id] ? [...ans[q.id]] : [];
+      const exclusive = ["딱히 없음"];
+      let next = arr.includes(o) ? arr.filter(x=>x!==o) : [...arr, o];
+      if (exclusive.includes(o) && next.includes(o)) next = [o];       // '딱히 없음' 고르면 나머지 해제
+      else next = next.filter(x => !exclusive.includes(x));              // 다른 걸 고르면 '딱히 없음' 해제
+      ans[q.id] = next;
+      render();
+    }
+  });
+  $main.querySelectorAll(".opt[data-n]").forEach(b => b.onclick = () => {
+    ans[q.id] = +b.dataset.n;
+    $main.querySelectorAll(".opt").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");
+    setTimeout(()=>go(idx+1), 220);
+  });
+  const $next = document.getElementById("next");
+  const $skip = document.getElementById("skip");
+  if (q.type === "text"){
+    const ta = document.getElementById("ta");
+    ta.oninput = () => ans[q.id] = ta.value;
+    $next.onclick = () => { ans[q.id] = ta.value.trim(); go(idx+1); };
+    $skip.onclick = () => { ans[q.id] = ""; go(idx+1); };
+  } else if (q.type === "phone4"){
+    const p4 = document.getElementById("p4");
+    p4.oninput = () => { p4.value = p4.value.replace(/\D/g,"").slice(0,4); ans[q.id] = p4.value; };
+    $next.onclick = () => {
+      if (p4.value && p4.value.length !== 4){ document.getElementById("err").textContent = "숫자 4자리를 입력해주세요"; return; }
+      ans[q.id] = p4.value; go(idx+1);
+    };
+    $skip.onclick = () => { ans[q.id] = ""; go(idx+1); };
+  } else if ($next){
+    $next.onclick = () => go(idx+1);
+  }
+}
+
+function go(i){ idx = i; render(); window.scrollTo(0,0); }
+$back.onclick = () => go(idx-1);
+
+/* ---------- 제출 ---------- */
+async function submit(){
+  setChrome();
+  $bar.style.width = "100%";
+  $main.innerHTML = `<section class="screen"><h2>제출하는 중…</h2></section>`;
+
+  const satQ = Q.find(q=>q.id==="satisfaction");
+  const payload = {
+    booking_id: BOOKING,
+    session: ctx.hasSession ? SESSIONS[SESSION_CODE] : (ans.session || ""),
+    session_source: BOOKING ? "booking" : (ctx.hasSession ? "qr" : (ans.session ? "self" : "")),
+    phone4: ans.phone4 || "",
+    gender: ans.gender || "", age: ans.age || "", affiliation: ans.affiliation || "",
+    relation: ans.relation || "", channels: ans.channels || [], reason: ans.reason || [],
+    theater_freq: ans.theater_freq || "", sgtc_visits: ans.sgtc_visits || "",
+    original_awareness: ans.original_awareness || "",
+    satisfaction: ans.satisfaction ? satQ.values[satQ.options.indexOf(ans.satisfaction)] : "",
+    nps: (ans.nps ?? ""), price: ans.price || "",
+    notify: ans.notify || "", comment: ans.comment || "",
+    duration_sec: Math.round((Date.now()-startedAt)/1000),
+    user_agent: navigator.userAgent.slice(0,200),
+  };
+
+  try{
+    if (!ENDPOINT){ console.log("[테스트 모드] 제출 데이터:", payload); }
+    else {
+      await fetch(ENDPOINT, { method:"POST", mode:"no-cors",
+        headers:{ "Content-Type":"text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
+    }
+    try { localStorage.setItem("gull_survey_done", BOOKING || SESSION_CODE || "any"); } catch(e){}
+    $back.classList.remove("show"); $count.textContent = "";
+    $main.innerHTML = `<section class="screen">
+      ${gullSVG}
+      <h1>감사합니다</h1>
+      <p class="lead">소중한 응답이 잘 전달됐어요.<br>오늘 함께해주셔서 고맙습니다.</p>
+      <div class="spacer"></div>
+      <p class="hint">서강연극회 제118회 정기공연 『갈매기』</p>
+    </section>`;
+  } catch(e){
+    $main.innerHTML = `<section class="screen"><h2>전송에 실패했어요</h2>
+      <p class="hint">네트워크 상태를 확인하고 다시 시도해주세요.</p><div class="spacer"></div>
+      <button class="cta" id="retry">다시 보내기</button></section>`;
+    document.getElementById("retry").onclick = submit;
+  }
+}
+
+buildFlow();
+render();
+</script>
+</body>
+</html>
